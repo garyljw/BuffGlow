@@ -1,4 +1,4 @@
-# BuffGlow
+# BuffGlow Reminder
 
 A World of Warcraft Classic addon that reminds you about missing long-duration buffs with a soft, pulsing glow.
 
@@ -21,19 +21,19 @@ Buffs only trigger once you've learned the spell. Self-only buffs, such as Inner
 
 ## Installation
 
-Copy the `BuffGlow` folder into your AddOns folder, for example:
+Install from CurseForge (BuffGlowReminder), or copy the `BuffGlowReminder` folder into your AddOns folder, for example:
 
 ```
 World of Warcraft\_classic_era_\Interface\AddOns\BuffGlow
 ```
 
-Then restart the game and make sure BuffGlow is ticked in the AddOns list.
+Then restart the game and make sure BuffGlow Reminder is ticked in the AddOns list.
 
 To see target glows on nameplates, turn on friendly player nameplates (Shift+V by default).
 
 ## Options
 
-Open **Esc > Options > AddOns > BuffGlow**, or type `/bglow config`. The options are:
+Open **Esc > Options > AddOns > BuffGlow Reminder**, or type `/bglow config`. The options are:
 
 - Which buffs to watch
 - Whether the target glow is on

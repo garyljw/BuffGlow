@@ -1,4 +1,4 @@
--- BuffGlow
+-- BuffGlow Reminder
 -- * Your player portrait glows when you're missing a long buff you can cast on yourself.
 -- * Your target's nameplate (and target portrait) glows when a friendly player is
 --   missing a buff you can give them.
@@ -337,8 +337,8 @@ end)
 events:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
-        BuffGlowDB = BuffGlowDB or {}
-        db = BuffGlowDB
+        BuffGlowReminderDB = BuffGlowReminderDB or {}
+        db = BuffGlowReminderDB
         for k, v in pairs(defaults) do if db[k] == nil then db[k] = v end end
         db.enabled = db.enabled or {}
         BuildNames()
@@ -355,13 +355,13 @@ events:SetScript("OnEvent", function(_, event, arg1)
 end)
 
 -- Slash command -------------------------------------------------------------
-local function Print(msg) print("|cffb48cffBuffGlow:|r " .. msg) end
+local function Print(msg) print("|cffb48cffBuffGlow Reminder:|r " .. msg) end
 
 local function Hex(c) return string.format("|cff%02x%02x%02x", c[1] * 255, c[2] * 255, c[3] * 255) end
 
--- Options panel (Esc > Options > AddOns > BuffGlow) -------------------------
-local panel = CreateFrame("Frame", "BuffGlowOptionsPanel")
-panel.name = "BuffGlow"
+-- Options panel (Esc > Options > AddOns > BuffGlow Reminder) -------------------------
+local panel = CreateFrame("Frame", "BuffGlowReminderOptionsPanel")
+panel.name = "BuffGlow Reminder"
 panel:Hide()
 
 local refreshing = false
@@ -383,7 +383,7 @@ end
 local function BuildPanel()
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("BuffGlow")
+    title:SetText("BuffGlow Reminder")
 
     local sub = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
@@ -513,9 +513,9 @@ elseif InterfaceOptions_AddCategory then
     end
 end
 
-SLASH_BUFFGLOW1 = "/bglow"
-SLASH_BUFFGLOW2 = "/buffglow"
-SlashCmdList.BUFFGLOW = function(msg)
+SLASH_BUFFGLOWREMINDER1 = "/bglow"
+SLASH_BUFFGLOWREMINDER2 = "/buffglowreminder"
+SlashCmdList.BUFFGLOWREMINDER = function(msg)
     msg = (msg or ""):lower():trim()
     if msg == "config" or msg == "options" then
         if OpenPanel then OpenPanel() else Print("Options panel isn't available in this client.") end
