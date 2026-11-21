@@ -1,0 +1,7 @@
+## Interface: 16001, 20506
+## Title: BuffGlow
+## Notes: Glows around your portrait (and your target's nameplate) in the buff's colour when a long buff you can cast is missing.
+## Version: 2.1.0
+## SavedVariablesPerCharacter: BuffGlowDB
+
+BuffGlow.lua
