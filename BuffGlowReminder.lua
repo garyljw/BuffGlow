@@ -24,6 +24,8 @@ local _, CLASS = UnitClass("player")
 -- color  : glow colour, taken from the buff's icon
 -- others : can be cast on other players (used for the target glow)
 -- mineOnly: only counts if YOU cast it (paladin blessings)
+-- partyOnly : target glow only for targets in your party (warrior shouts)
+-- combatOnly: only glows while you're in combat (warrior shouts)
 -- off    : disabled by default
 local BUFFS = {
     MAGE = {
@@ -52,6 +54,14 @@ local BUFFS = {
     },
     SHAMAN = {
         { key = "shield", label = "Lightning / Water Shield", spells = { 324, 24398 }, color = { 0.3, 0.6, 1 } },
+    },
+    -- Shouts are short and cost rage, so they only glow in combat, and only
+    -- glow on a target who's in your party (shouts don't reach anyone else).
+    WARRIOR = {
+        { key = "battleshout", label = "Battle Shout (in combat)", spells = { 6673 }, color = { 1, 0.3, 0.2 },
+          others = true, partyOnly = true, combatOnly = true },
+        { key = "commanding", label = "Commanding Shout (in combat)", spells = { 469 }, color = { 0.95, 0.8, 0.45 },
+          others = true, partyOnly = true, combatOnly = true, off = true },
     },
 }
 
@@ -87,7 +97,14 @@ local function CanCast(b)
     return false
 end
 
--- Returns a list of { name, mine } for a unit's buffs
+-- The Forever client can hide aura details as "secret values" (mostly in
+-- combat). Comparing or using one as a table key errors, so check first.
+local function IsSecret(v)
+    return issecretvalue and issecretvalue(v) or false
+end
+
+-- Returns a list of { name, mine } for a unit's buffs. If any names are secret,
+-- list.secret is set and HasBuff falls back to asking for each buff by name.
 local function ScanAuras(unit)
     local list = {}
     for i = 1, 40 do
@@ -101,14 +118,33 @@ local function ScanAuras(unit)
             if not n then break end
             name, source = n, src
         end
-        list[#list + 1] = { name = name, mine = source and UnitIsUnit(source, "player") }
+        if IsSecret(name) then
+            list.secret = true
+        else
+            local mine
+            if source == nil then
+                mine = false
+            elseif IsSecret(source) then
+                mine = "unknown"
+            else
+                mine = UnitIsUnit(source, "player")
+            end
+            list[#list + 1] = { name = name, mine = mine }
+        end
     end
     return list
 end
 
-local function HasBuff(auras, b)
+local function HasBuff(auras, b, unit)
     for _, a in ipairs(auras) do
         if b.names[a.name] and (not b.mineOnly or a.mine) then return true end
+    end
+    -- Some names were hidden: look each of this buff's names up directly.
+    if auras.secret and C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName then
+        for n in pairs(b.names) do
+            local ok, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, n, "HELPFUL")
+            if ok and aura then return true end
+        end
     end
     return false
 end
@@ -270,8 +306,13 @@ local testUntil = 0
 local function MissingColors(unit, onlyOthers)
     local auras = ScanAuras(unit)
     local colors = {}
+    local inCombat = UnitAffectingCombat("player")
+    local inParty = onlyOthers and UnitInParty(unit)
     for _, b in ipairs(myBuffs) do
-        if Enabled(b) and (not onlyOthers or b.others) and CanCast(b) and not HasBuff(auras, b) then
+        if Enabled(b) and (not onlyOthers or b.others)
+            and (not b.combatOnly or inCombat)
+            and (not onlyOthers or not b.partyOnly or inParty)
+            and CanCast(b) and not HasBuff(auras, b, unit) then
             colors[#colors + 1] = b.color
         end
     end
@@ -322,6 +363,8 @@ events:RegisterEvent("PLAYER_DEAD")
 events:RegisterEvent("PLAYER_ALIVE")
 events:RegisterEvent("PLAYER_UNGHOST")
 events:RegisterEvent("SPELLS_CHANGED")
+events:RegisterEvent("PLAYER_REGEN_DISABLED") -- entering combat
+events:RegisterEvent("PLAYER_REGEN_ENABLED")  -- leaving combat
 events:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 events:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 events:RegisterUnitEvent("UNIT_AURA", "player", "target")

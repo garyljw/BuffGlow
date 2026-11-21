@@ -16,6 +16,7 @@ A World of Warcraft Classic addon that reminds you about missing long-duration b
 | Warlock | Demon Skin / Demon Armor / Fel Armor |
 | Paladin | A Blessing cast by you (including Greater Blessings), Righteous Fury (off by default) |
 | Shaman | Lightning / Water Shield |
+| Warrior | Battle Shout, Commanding Shout (off by default). Shouts only glow in combat, and only on targets in your party |
 
 Buffs only trigger once you've learned the spell. Self-only buffs, such as Inner Fire and the armors, never trigger the target glow.
 
