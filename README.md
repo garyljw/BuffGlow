@@ -24,7 +24,7 @@ Buffs only trigger once you've learned the spell. Self-only buffs, such as Inner
 Install from CurseForge (BuffGlowReminder), or copy the `BuffGlowReminder` folder into your AddOns folder, for example:
 
 ```
-World of Warcraft\_classic_era_\Interface\AddOns\BuffGlow
+World of Warcraft\_classic_era_\Interface\AddOns\BuffGlowReminder
 ```
 
 Then restart the game and make sure BuffGlow Reminder is ticked in the AddOns list.
