@@ -56,3 +56,7 @@ Open **Esc > Options > AddOns > BuffGlow**, or type `/bglow config`. The options
 | `/bglow test` | Show the glow for 5 seconds |
 
 Settings are saved per character.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
