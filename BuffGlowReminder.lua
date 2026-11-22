@@ -103,18 +103,23 @@ local function IsSecret(v)
     return issecretvalue and issecretvalue(v) or false
 end
 
--- Returns a list of { name, mine } for a unit's buffs. If any names are secret,
+-- Returns a list of { name, mine } for a unit's buffs, or nil if the client
+-- refuses to show this unit's auras right now. In combat the Forever client
+-- can make the aura lookup itself throw ("Auras cannot be accessed when
+-- secret"), so every call is wrapped in pcall. If only some names are secret,
 -- list.secret is set and HasBuff falls back to asking for each buff by name.
 local function ScanAuras(unit)
     local list = {}
     for i = 1, 40 do
         local name, source
         if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
-            local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, "HELPFUL")
+            local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, "HELPFUL")
+            if not ok then return nil end
             if not aura then break end
             name, source = aura.name, aura.sourceUnit
         else
-            local n, _, _, _, _, _, src = UnitBuff(unit, i)
+            local ok, n, _, _, _, _, _, src = pcall(UnitBuff, unit, i)
+            if not ok then return nil end
             if not n then break end
             name, source = n, src
         end
@@ -143,10 +148,51 @@ local function HasBuff(auras, b, unit)
     if auras.secret and C_UnitAuras and C_UnitAuras.GetAuraDataBySpellName then
         for n in pairs(b.names) do
             local ok, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, unit, n, "HELPFUL")
-            if ok and aura then return true end
+            if not ok then return true end -- can't tell: don't nag
+            if aura then return true end
         end
     end
     return false
+end
+
+-- Last readable aura list per unit, used while the client hides auras (combat).
+-- blocked[unit] stops us retrying a refused lookup every second until combat
+-- ends or the target changes.
+local cache, cacheGUID, blocked = {}, {}, {}
+
+local function GetAuras(unit)
+    local guid = UnitGUID(unit)
+    if IsSecret(guid) then guid = nil end
+    if not blocked[unit] or not UnitAffectingCombat("player") then
+        local list = ScanAuras(unit)
+        if list then
+            cache[unit], cacheGUID[unit] = list, guid
+            return list
+        end
+        blocked[unit] = true
+    end
+    -- Only reuse the cache if it belongs to this same character.
+    if cache[unit] and guid and cacheGUID[unit] == guid then return cache[unit] end
+    return nil
+end
+
+-- You cast a tracked buff while auras are hidden: count it as on, so the glow
+-- stops instead of nagging until combat ends.
+local function NoteCast(spellID)
+    if not spellID or IsSecret(spellID) then return end
+    local name = SpellName(spellID)
+    if not name or IsSecret(name) then return end
+    for _, b in ipairs(myBuffs) do
+        if b.names and b.names[name] then
+            if blocked.player and cache.player then
+                table.insert(cache.player, { name = name, mine = true })
+            end
+            -- Shouts hit the whole party, so a party-member target gets it too.
+            if b.partyOnly and blocked.target and cache.target and UnitInParty("target") then
+                table.insert(cache.target, { name = name, mine = true })
+            end
+        end
+    end
 end
 
 -- Settings --------------------------------------------------------------------
@@ -303,8 +349,10 @@ end
 -- Update ----------------------------------------------------------------------
 local testUntil = 0
 
+-- Returns nil when the unit's auras can't be read and nothing is cached.
 local function MissingColors(unit, onlyOthers)
-    local auras = ScanAuras(unit)
+    local auras = GetAuras(unit)
+    if not auras then return nil end
     local colors = {}
     local inCombat = UnitAffectingCombat("player")
     local inParty = onlyOthers and UnitInParty(unit)
@@ -337,14 +385,14 @@ local function Update()
     elseif UnitIsDeadOrGhost("player") or UnitOnTaxi("player") then
         HideGlow(playerGlow)
     else
-        SetGlowColors(playerGlow, MissingColors("player", false))
+        SetGlowColors(playerGlow, MissingColors("player", false) or {})
     end
 
     -- Target: friendly, alive, online, another player
     local colors = {}
     if db.target and UnitExists("target") and UnitIsPlayer("target") and not UnitIsUnit("target", "player")
         and UnitCanAssist("player", "target") and not UnitIsDeadOrGhost("target") and UnitIsConnected("target") then
-        colors = MissingColors("target", true)
+        colors = MissingColors("target", true) or {}
     end
     SetGlowColors(targetGlow, colors)
     if #colors > 0 and AttachPlateGlow() then
@@ -368,6 +416,7 @@ events:RegisterEvent("PLAYER_REGEN_ENABLED")  -- leaving combat
 events:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 events:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 events:RegisterUnitEvent("UNIT_AURA", "player", "target")
+events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 
 local sinceUpdate = 0
 events:SetScript("OnUpdate", function(_, elapsed)
@@ -377,7 +426,14 @@ events:SetScript("OnUpdate", function(_, elapsed)
     if sinceUpdate >= 1 then sinceUpdate = 0; Update() end
 end)
 
-events:SetScript("OnEvent", function(_, event, arg1)
+events:SetScript("OnEvent", function(_, event, arg1, _, arg3)
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        NoteCast(arg3)
+    elseif event == "PLAYER_REGEN_ENABLED" or event == "PLAYER_ENTERING_WORLD" then
+        blocked.player, blocked.target = nil, nil -- try reading auras again
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        blocked.target = nil
+    end
     if event == "ADDON_LOADED" then
         if arg1 ~= ADDON then return end
         BuffGlowReminderDB = BuffGlowReminderDB or {}
